@@ -52,7 +52,33 @@ Są 4 główne sposoby zapobiegania XSS i są to:
 
 ### Jakich kroków użyto:
 - Stworzenie osobnego pliku **utils.py** zawierającego nowe narzędzie sanitize_text. Służący ono do filtrowania dancych wejściowych. Sprawdza dane zanim zostaną zapisane do bazy danych. Pozwalamy tylko na oczekiwane znaki, długości oraz typy danych. Dodatkowo usuwamy wszystkie tagi HTML czy JS z pól tekstowych.
-![Utils](utils.png)
+```
+import re
+import bleach
+from flask import jsonify
+
+ALLOWED_TAGS = []
+ALLOWED_ATTRS = {}
+
+
+SAFE_TEXT_RE = re.compile(r"^[\w\s\-\.,:;!?'\"()ąćęłńóśżźĄĆĘŁŃÓŚŻŹ]*$", re.UNICODE)
+
+def sanitize_text(value: str, max_len: int = 200):
+    """Trim, sanitize HTML (usuń tagi) i sprawdź długość/znaki.
+       Zwraca oczyszczony string lub rzuca ValueError."""
+    if value is None:
+        return ''
+    v = str(value).strip()
+    if len(v) == 0:
+        return ''
+    if len(v) > max_len:
+        raise ValueError("Too long")
+    cleaned = bleach.clean(v, tags=ALLOWED_TAGS, attributes=ALLOWED_ATTRS, strip=True)
+    if not SAFE_TEXT_RE.match(cleaned):
+        raise ValueError("Contains disallowed characters")
+    return cleaned
+```
+
 - Szyfrowanie danych wyjściowych poprzez <p>{{ book.name }}</p> (czyli usunięcie | safe tam, gdzie to możliwe). W ten sposób żadne tagi nie powinny być interpretowane przez przeglądarkę więc, gdyby do bazy przypadkiem trafił tag HTML to nie powinien się wykonać.
 - Odpowiednie nagłówki HTTP, czyli blokujemy takie jak X-Content-Type-Options czy X-Frame-Options. W ten sposób przeglądarka wymusza bezpieczne traktowanie danych.
 - Definiujemy politykę bezpieczeństwa, w ten sposób ograniczając skąd można ładować skrypty i zasoby. 
