@@ -53,7 +53,7 @@ Są 4 główne sposoby zapobiegania XSS i są to:
 ### Jakich kroków użyto:
 - Stworzenie osobnego pliku **utils.py** zawierającego nowe narzędzie sanitize_text. Służący ono do filtrowania dancych wejściowych. Sprawdza dane zanim zostaną zapisane do bazy danych. Pozwalamy tylko na oczekiwane znaki, długości oraz typy danych. Dodatkowo usuwamy wszystkie tagi HTML czy JS z pól tekstowych.
 ![Utils](utils.png)
-- Szyfrowanie danych wyjściowych poprzez <p>{{ book.name }}</p>. W ten sposób żadne tagi nie powinny być interpretowane przez przeglądarkę więc, gdyby do bazy przypadkiem trafił tag HTML to nie powinien się wykonać.
+- Szyfrowanie danych wyjściowych poprzez <p>{{ book.name }}</p> (czyli usunięcie | safe tam, gdzie to możliwe). W ten sposób żadne tagi nie powinny być interpretowane przez przeglądarkę więc, gdyby do bazy przypadkiem trafił tag HTML to nie powinien się wykonać.
 - Odpowiednie nagłówki HTTP, czyli blokujemy takie jak X-Content-Type-Options czy X-Frame-Options. W ten sposób przeglądarka wymusza bezpieczne traktowanie danych.
 - Definiujemy politykę bezpieczeństwa, w ten sposób ograniczając skąd można ładować skrypty i zasoby. 
 
@@ -62,9 +62,10 @@ Po zastosowaniu poprawek nie występuje już XSS.
 
 ## Testy
 Wykorzystano bibliotekę pytest i stworzono następujący test:
-# test_utils.py
-from project.utils import sanitize_text
+
 ```
+from project.utils import sanitize_text
+
 def test_sanitize_text():
     # Test 1: usuwa <script>
     input_text = '<script>alert(1)</script>'
