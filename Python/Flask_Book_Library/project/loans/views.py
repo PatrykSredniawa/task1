@@ -4,7 +4,7 @@ from project.loans.models import Loan
 from project.loans.forms import CreateLoan
 from project.books.models import Book
 from project.customers.models import Customer
-
+from project.utils import sanitize_text
 
 # Blueprint for loans
 loans = Blueprint('loans', __name__, template_folder='templates', url_prefix='/loans')
@@ -51,8 +51,8 @@ def create_loan():
     if request.method == 'POST':
         
         # Process form submission
-        customer_name = form.customer_name.data
-        book_name = form.book_name.data
+        customer_name = sanitize_text(form.customer_name.data, max_len=200)
+        book_name = sanitize_text(form.book_name.data, max_len=200)
         loan_date = form.loan_date.data
         return_date = form.return_date.data
 
@@ -67,14 +67,12 @@ def create_loan():
             new_loan = Loan(
                 customer_name=customer_name,
                 book_name=book_name,
-                loan_date=loan_date,
-                return_date=return_date,
+                loan_date=form.loan_date.data,
+                return_date=form.return_date.data,
                 original_author=book.author,
                 original_year_published=book.year_published,
                 original_book_type=book.book_type
             )
-
-            # Add the new loan to the database
             db.session.add(new_loan)
             db.session.commit()
             print('Loan added successfully')
@@ -140,18 +138,19 @@ def delete_loan(loan_id):
 
     try:
         # Retrieve the book associated with the loan
+        name = sanitize_text(loan.book_name, max_len=200)
+        author = sanitize_text(loan.original_author, max_len=200)
+        year = loan.original_year_published
+        book_type = sanitize_text(loan.original_book_type, max_len=100)
+
         book = Book(
-            name=loan.book_name,
-            author=loan.original_author,
-            year_published=loan.original_year_published,
-            book_type=loan.original_book_type,
-            status='available'  
+            name=name,
+            author=author,
+            year_published=year,
+            book_type=book_type,
+            status='available'
         )
-
-        # Add the book to the database
         db.session.add(book)
-
-        # Delete the loan from the database
         db.session.delete(loan)
         db.session.commit()
         print('Loan deleted successfully')

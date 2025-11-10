@@ -2,6 +2,7 @@ from flask import render_template, Blueprint, request, redirect, url_for, jsonif
 from project import db
 from project.books.models import Book
 from project.books.forms import CreateBook
+from project.utils import sanitize_text
 
 
 # Blueprint for books
@@ -31,52 +32,65 @@ def list_books_json():
 @books.route('/create', methods=['POST', 'GET'])
 def create_book():
     data = request.get_json()
-
-    new_book = Book(name=data['name'], author=data['author'], year_published=data['year_published'], book_type=data['book_type'])
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
 
     try:
-        # Add the new book to the session and commit to save to the database
+        # ✅ Sanitizacja i walidacja
+        name = sanitize_text(data.get('name', ''), max_len=200)
+        author = sanitize_text(data.get('author', ''), max_len=200)
+        year_raw = data.get('year_published')
+        try:
+            year_published = int(year_raw) if year_raw not in (None, '') else None
+        except ValueError:
+            return jsonify({'error': 'year_published must be an integer'}), 400
+        book_type = sanitize_text(data.get('book_type', ''), max_len=100)
+
+        new_book = Book(name=name, author=author, year_published=year_published, book_type=book_type)
         db.session.add(new_book)
         db.session.commit()
-        print('Book added successfully')
         return redirect(url_for('books.list_books'))
-    except Exception as e:
-        # Handle any exceptions, such as database errors
+
+    except ValueError as ve:
         db.session.rollback()
-        print('Error creating book')
+        return jsonify({'error': f'Invalid field: {str(ve)}'}), 400
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': f'Error creating book: {str(e)}'}), 500
 
 
 # Route to update an existing book
 @books.route('/<int:book_id>/edit', methods=['POST'])
 def edit_book(book_id):
-    # Get the book with the given ID
     book = Book.query.get(book_id)
-    
-    # Check if the book exists
     if not book:
-        print('Book not found')
         return jsonify({'error': 'Book not found'}), 404
 
+    data = request.get_json()
+    if not data:
+        return jsonify({'error': 'Invalid request data'}), 400
+
     try:
-        # Get data from the request as JSON
-        data = request.get_json()
-        
-        # Update book details
-        book.name = data.get('name', book.name)  # Update if data exists, otherwise keep the same
-        book.author = data.get('author', book.author)
-        book.year_published = data.get('year_published', book.year_published)
-        book.book_type = data.get('book_type', book.book_type)
-        
-        # Commit the changes to the database
+        if 'name' in data:
+            book.name = sanitize_text(data.get('name'), max_len=200)
+        if 'author' in data:
+            book.author = sanitize_text(data.get('author'), max_len=200)
+        if 'year_published' in data:
+            yr = data.get('year_published')
+            book.year_published = int(yr) if yr not in (None, '') else None
+        if 'book_type' in data:
+            book.book_type = sanitize_text(data.get('book_type'), max_len=100)
+
         db.session.commit()
-        print('Book edited successfully')
         return jsonify({'message': 'Book updated successfully'})
-    except Exception as e:
-        # Handle any exceptions
+
+    except ValueError as ve:
         db.session.rollback()
-        print('Error updating book')
+        return jsonify({'error': f'Invalid field: {str(ve)}'}), 400
+    except Exception as e:
+        db.session.rollback()
         return jsonify({'error': f'Error updating book: {str(e)}'}), 500
+
 
 
 # Route to fetch existing book data for editing
